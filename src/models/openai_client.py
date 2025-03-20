@@ -17,7 +17,6 @@ class OpenAIModel:
     """Wrapper for OpenAI's models to generate text responses"""
     
     def __init__(self, model_name: str = "gpt-4o"):
-        # load api key from environment
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             error_msg = "OpenAI API key not found in environment variables"
@@ -44,7 +43,7 @@ class OpenAIModel:
             
             generated_text = response.choices[0].message.content.strip()
             
-            logger.info(f"Successfully generated response of {len(generated_text)} characters")
+            logger.info(f"Successfully generated response")
             return generated_text
             
         except Exception as e:
@@ -104,7 +103,7 @@ if __name__ == "__main__":
         
         # load the first example from the dataset
         examples = loader.load_and_extract("train.json")
-        first_example = examples[0]
+        first_example = examples[1]
         
         # preprocess the example to create a prompt
         processed = preprocessor.preprocess_examples([first_example])[0]

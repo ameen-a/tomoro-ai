@@ -2,7 +2,7 @@
 
 # openai model settings
 OPENAI_CONFIG = {
-    "model_name": "gpt-3.5-turbo",
+    "model_name": "gpt-4o",
     "temperature": 0.0,
     "max_tokens": 100
 }

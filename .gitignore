@@ -2,3 +2,5 @@
 .DS_Store
 .pyc
 /.cursor
+/wandb
+/data/output

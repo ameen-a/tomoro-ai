@@ -4,15 +4,7 @@ from typing import Dict, Any, List, Union
 logger = logging.getLogger(__name__)
 
 def create_convfinqa_prompt(context: str, question: str) -> str:
-    """create a complete prompt with context, question and instruction for convfinqa dataset
-    
-    args:
-        context (str): the assembled context including pre-text, table, and post-text
-        question (str): the cleaned question text
-        
-    returns:
-        str: formatted prompt ready for llm consumption
-    """
+    """Create a complete prompt with context, question and instruction for ConvFinQA dataset"""
     prompt = f"""Context:
     {context}
 
@@ -26,16 +18,7 @@ def create_convfinqa_prompt(context: str, question: str) -> str:
 def assemble_context(example: Dict[str, Any], 
                     clean_text_func, 
                     format_table_func) -> str:
-    """combine all context pieces into a coherent format
-    
-    args:
-        example: dict containing pre_text, table, and post_text
-        clean_text_func: function to clean text data
-        format_table_func: function to format table data
-        
-    returns:
-        str: assembled context with all components
-    """
+    """Combine all context pieces into a coherent format"""
     context_parts = []
     
     # pre-text 
