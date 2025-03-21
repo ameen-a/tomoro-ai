@@ -1,6 +1,7 @@
 import argparse
 import logging
 import wandb
+import weave
 import json
 from pathlib import Path
 from typing import List, Dict, Any
@@ -9,8 +10,10 @@ import time
 from src.data.loader import get_loader
 from src.data.preprocessor import get_preprocessor
 from src.models.openai_client import get_openai_model
+from src.models.claude_client import get_claude_model
 from src.evaluation.answer_extractor import get_answer_extractor
 from src.evaluation.metrics import get_evaluation_metrics
+from src.evaluation.weave_utils import log_evaluation_to_weave
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,7 +30,13 @@ class ModelEvaluator:
     def __init__(self, model_name: str = "gpt-4o", use_wandb: bool = True):
         self.loader = get_loader()
         self.preprocessor = get_preprocessor()
-        self.model = get_openai_model(model_name)
+        
+        # determine which client to use based on the model name
+        if model_name.startswith("claude"):
+            self.model = get_claude_model(model_name)
+        else:
+            self.model = get_openai_model(model_name)
+            
         self.extractor = get_answer_extractor()
         self.metrics = get_evaluation_metrics(use_wandb=use_wandb)
         
@@ -92,6 +101,23 @@ class ModelEvaluator:
                 logger.info(f"  Prediction: {prediction} → {pred_value}%")
                 logger.info(f"  Ground truth: {example['answer']} → {gt_value}%")
                 
+                # log to weave evals
+                if processed_result['status'] == 'success':
+                    log_evaluation_to_weave(
+                        example_id=example['id'],
+                        question=example['question'],
+                        prompt=example['prompt'],
+                        model_response=prediction,
+                        ground_truth=example['answer'],
+                        prediction_value=pred_value,
+                        ground_truth_value=gt_value,
+                        metrics={
+                            "absolute_error": abs(pred_value - gt_value) if pred_value is not None and gt_value is not None else None,
+                            "squared_error": (pred_value - gt_value)**2 if pred_value is not None and gt_value is not None else None,
+                            "exact_match": pred_value == gt_value
+                        }
+                    )
+                
                 # avoid rate limits
                 time.sleep(0.5)
                 
@@ -145,49 +171,30 @@ class ModelEvaluator:
             
         logger.info(f"Saved detailed results to {output_file}")
 
-# for backward compatibility
-# def evaluate_model(
-#     dataset_file: str,
-#     model_name: str = "gpt-4o",
-#     max_examples: int = None,
-#     temperature: float = 0.0,
-#     max_tokens: int = 100,
-#     save_results: bool = True
-# ) -> Dict[str, Any]:
-#     """wrapper for backward compatibility"""
-#     evaluator = ModelEvaluator(model_name=model_name)
-#     return evaluator.evaluate(
-#         dataset_file=dataset_file,
-#         max_examples=max_examples,
-#         temperature=temperature,
-#         max_tokens=max_tokens,
-#         save_results=save_results
-#     )
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="evaluate model on convfinqa dataset")
+    parser = argparse.ArgumentParser(description="Evaluate model on ConvFinQA dataset")
     
     parser.add_argument("--dataset", type=str, default="train.json",
-                        help="dataset file in data/raw directory")
-    parser.add_argument("--model", type=str, default="gpt-4o",
-                        help="openai model to use")
+                        help="Dataset file in data/raw directory")
+    parser.add_argument("--model", type=str, default="claude-3-7-sonnet-20250219",
+                        help="OpenAI model to use")
     parser.add_argument("--max-examples", type=int, default=10,
-                        help="maximum number of examples to evaluate")
+                        help="Maximum number of examples to evaluate")
     parser.add_argument("--temperature", type=float, default=0.0,
-                        help="model temperature")
+                        help="Model temperature")
     parser.add_argument("--max-tokens", type=int, default=100,
-                        help="maximum tokens for model response")
+                        help="Maximum tokens for model response")
     parser.add_argument("--no-save", action="store_true",
-                        help="don't save detailed results")
+                        help="Don't save detailed results")
     parser.add_argument("--wandb-project", type=str, default="convfinqa-eval",
-                        help="weights & biases project name")
+                        help="Weights & Biases project name")
     parser.add_argument("--wandb-name", type=str, default=None,
-                        help="weights & biases run name")
+                        help="Weights & Biases run name")
     
     args = parser.parse_args()
     
     # initialise WandB
-    wandb_name = args.wandb_name or f"{args.model}-{args.dataset.split('.')[0]}"
+    wandb_name = args.wandb_name or f"{args.model}-{args.dataset.split('.')[0]}" # example: gpt-4o-train
     wandb.init(project=args.wandb_project, name=wandb_name, config={
         "model": args.model,
         "dataset": args.dataset,
@@ -196,9 +203,11 @@ if __name__ == "__main__":
         "max_examples": args.max_examples
     })
     
+    # initialise Weave
+    weave.init(args.wandb_project)
+    
     # run evaluation
     try:
-        # create evaluator
         evaluator = ModelEvaluator(model_name=args.model)
         
         # evaluate model
@@ -209,15 +218,9 @@ if __name__ == "__main__":
             max_tokens=args.max_tokens,
             save_results=not args.no_save
         )
-        
-        # print summary
-        print("\nevaluation results:")
-        for metric, value in metrics.items():
-            print(f"{metric}: {value}")
             
     except Exception as e:
-        logger.error(f"evaluation failed: {e}")
+        logger.error(f"Evaluation failed: {e}")
         
     finally:
-        # close wandb
         wandb.finish() 

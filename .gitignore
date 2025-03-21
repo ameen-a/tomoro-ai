@@ -1,6 +1,7 @@
 .env
 .DS_Store
-.pyc
 /.cursor
 /wandb
 /data/output
+/.venv
+*.pyc
