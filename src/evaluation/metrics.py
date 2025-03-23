@@ -5,127 +5,141 @@ from collections import defaultdict
 import wandb
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
+
 class EvaluationMetrics:
     """Calculates eval metrics for percentage prediction tasks"""
-    
+
     def __init__(self, use_wandb: bool = True):
         self.use_wandb = use_wandb
         logger.info(f"Initialised evaluation metrics calculator (wandb: {use_wandb})")
-        
-    def exact_match_accuracy(self, 
-                            predictions: List[float], 
-                            ground_truths: List[float]) -> float:
+
+    def exact_match_accuracy(
+        self, predictions: List[float], ground_truths: List[float]
+    ) -> float:
         """Calculate exact match accuracy (if predictions identical to ground truths)"""
         if not predictions or not ground_truths:
             logger.warning("Empty predictions or ground truths")
             return 0.0
-            
-        exact_matches = sum(1 for p, gt in zip(predictions, ground_truths) if p == gt) # count exact matches
+
+        exact_matches = sum(
+            1 for p, gt in zip(predictions, ground_truths) if p == gt
+        )  # count exact matches
         accuracy = exact_matches / len(predictions)
-        
+
         logger.info(f"Exact match accuracy: {accuracy:.4f}")
         return accuracy
-        
-    def threshold_accuracy(self, 
-                         predictions: List[float], 
-                         ground_truths: List[float],
-                         threshold: float = 0.1) -> float:
-        """Calculate accuracy within a threshold (absolute difference <= threshold) """
+
+    def threshold_accuracy(
+        self,
+        predictions: List[float],
+        ground_truths: List[float],
+        threshold: float = 0.1,
+    ) -> float:
+        """Calculate accuracy within a threshold (absolute difference <= threshold)"""
         if not predictions or not ground_truths:
             logger.warning("Empty predictions or ground truths")
             return 0.0
-        
-        # example: if threshold is 0.1, then check if the difference 
+
+        # example: if threshold is 0.1, then check if the difference
         # between the prediction and ground truth is 10% or less
-        within_threshold = sum(1 for p, gt in zip(predictions, ground_truths) 
-                             if abs(p - gt) <= threshold) 
+        within_threshold = sum(
+            1 for p, gt in zip(predictions, ground_truths) if abs(p - gt) <= threshold
+        )
         accuracy = within_threshold / len(predictions)
-        
+
         logger.info(f"Threshold accuracy (+/-{threshold}): {accuracy:.4f}")
         return accuracy
-        
-    def mean_absolute_error(self, 
-                          predictions: List[float], 
-                          ground_truths: List[float]) -> float:
+
+    def mean_absolute_error(
+        self, predictions: List[float], ground_truths: List[float]
+    ) -> float:
         """Calculate MAE between predictions and ground truths"""
         if not predictions or not ground_truths:
             logger.warning("Empty predictions or ground truths")
-            return float('inf')
-            
+            return float("inf")
+
         abs_errors = [abs(p - gt) for p, gt in zip(predictions, ground_truths)]
         mae = sum(abs_errors) / len(predictions)
-        
+
         logger.info(f"Mean absolute error: {mae:.4f} percentage points")
         return mae
-        
-    def mean_squared_error(self, 
-                         predictions: List[float], 
-                         ground_truths: List[float]) -> float:
+
+    def mean_squared_error(
+        self, predictions: List[float], ground_truths: List[float]
+    ) -> float:
         """Calculate MSE between predictions and ground truths"""
         if not predictions or not ground_truths:
             logger.warning("Empty predictions or ground truths")
-            return float('inf')
-            
+            return float("inf")
+
         squared_errors = [(p - gt) ** 2 for p, gt in zip(predictions, ground_truths)]
         mse = sum(squared_errors) / len(predictions)
-        
+
         logger.info(f"Mean squared error: {mse:.4f} percentage points")
         return mse
-        
-    def mean_relative_error(self, 
-                          predictions: List[float], 
-                          ground_truths: List[float],
-                          epsilon: float = 1e-10) -> float:
+
+    def mean_relative_error(
+        self,
+        predictions: List[float],
+        ground_truths: List[float],
+        epsilon: float = 1e-10,
+    ) -> float:
         """Calculate mean relative error between predictions and ground truths"""
         if not predictions or not ground_truths:
             logger.warning("Empty predictions or ground truths")
-            return float('inf')
-            
+            return float("inf")
+
         # handle division by zero with epsilon
-        relative_errors = [abs(p - gt) / (abs(gt) + epsilon) for p, gt in zip(predictions, ground_truths)]
+        relative_errors = [
+            abs(p - gt) / (abs(gt) + epsilon)
+            for p, gt in zip(predictions, ground_truths)
+        ]
         mre = sum(relative_errors) / len(predictions) * 100  # convert to %
-        
+
         logger.info(f"Mean relative error: {mre:.4f}%")
         return mre
-            
-    def calculate_all_metrics(self, 
-                            processed_results: List[Dict[str, Any]],
-                            thresholds: List[float] = [0.1, 0.5, 1.0]) -> Dict[str, float]:
+
+    def calculate_all_metrics(
+        self,
+        processed_results: List[Dict[str, Any]],
+        thresholds: List[float] = [0.1, 0.5, 1.0],
+    ) -> Dict[str, float]:
         """Calculate exact match, threshold, MAE, MSE and MRE"""
         # get only valid results
-        valid_results = [r for r in processed_results 
-                       if r.get('status') == 'success']
-        
+        valid_results = [r for r in processed_results if r.get("status") == "success"]
+
         if not valid_results:
             logger.warning("No valid results to evaluate")
             return {}
-            
+
         # get results
-        predictions = [r.get('prediction_value') for r in valid_results]
-        ground_truths = [r.get('ground_truth_value') for r in valid_results]
-        
+        predictions = [r.get("prediction_value") for r in valid_results]
+        ground_truths = [r.get("ground_truth_value") for r in valid_results]
+
         # calculate metrics
         metrics = {
-            'num_examples': len(processed_results),
-            'num_valid': len(valid_results),
-            'valid_percentage': len(valid_results) / len(processed_results) * 100,
-            'exact_match_accuracy': self.exact_match_accuracy(predictions, ground_truths),
-            'mae': self.mean_absolute_error(predictions, ground_truths),
-            'mse': self.mean_squared_error(predictions, ground_truths),
-            'mre': self.mean_relative_error(predictions, ground_truths)
+            "num_examples": len(processed_results),
+            "num_valid": len(valid_results),
+            "valid_percentage": len(valid_results) / len(processed_results) * 100,
+            "exact_match_accuracy": self.exact_match_accuracy(
+                predictions, ground_truths
+            ),
+            "mae": self.mean_absolute_error(predictions, ground_truths),
+            "mse": self.mean_squared_error(predictions, ground_truths),
+            "mre": self.mean_relative_error(predictions, ground_truths),
         }
-        
+
         # add threshold accuracies
         for threshold in thresholds:
-            key = f'threshold_accuracy_{threshold}'
+            key = f"threshold_accuracy_{threshold}"
             metrics[key] = self.threshold_accuracy(
-                predictions, ground_truths, threshold)
-        
+                predictions, ground_truths, threshold
+            )
+
         # log metrics to WandB
         if self.use_wandb:
             try:
@@ -133,45 +147,9 @@ class EvaluationMetrics:
                 logger.info("Successfully logged metrics to WandB")
             except Exception as e:
                 logger.error(f"Failed to log metrics to WandB: {e}")
-        
+
         return metrics
 
 
 def get_evaluation_metrics(use_wandb: bool = True) -> EvaluationMetrics:
     return EvaluationMetrics(use_wandb=use_wandb)
-
-
-if __name__ == "__main__":
-    # fix import paths for direct script execution
-    import sys
-    from pathlib import Path
-    
-    # add project root to path to allow imports to work
-    project_root = Path(__file__).parent.parent.parent
-    sys.path.insert(0, str(project_root))
-    
-    # test the metrics calculator
-    from src.evaluation.answer_extractor import get_answer_extractor
-    
-    # create test data with simple percentage responses
-    test_predictions = ["1.27%", "5%", "10.5%", "-2.5%", "The answer is 1.27%"]
-    test_ground_truths = ["1.3%", "5%", "9%", "-2%", "1.3%"]
-    
-    # process using extractor
-    extractor = get_answer_extractor()
-    processed_results = []
-    
-    for pred, gt in zip(test_predictions, test_ground_truths):
-        processed_results.append(extractor.process_example(pred, gt))
-    
-    # initialize metrics calculator without wandb for testing
-    metrics_calculator = get_evaluation_metrics(use_wandb=False)
-    
-    # calculate and print all metrics
-    all_metrics = metrics_calculator.calculate_all_metrics(processed_results)
-    
-    print("\nevaluation metrics:")
-    for metric_name, metric_value in all_metrics.items():
-        print(f"{metric_name}: {metric_value}")
-
-# wandb.init(project="convfinqa-eval", name="model-evaluation-run")

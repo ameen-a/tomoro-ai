@@ -1,4 +1,4 @@
-# tomoro-ai: ConvFinQA Evaluation
+# Tomoro: ConvFinQA Evaluation
 
  A tool for evaluating LLMs on the `ConvFinQA` dataset - a conversational financial QA benchmark. 
 
@@ -10,10 +10,8 @@
 
 ### Installation
 ```bash
-git clone https://github.com/your-username/convfinqa-eval.git
-cd convfinqa-eval
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+# from project root
+./setup.sh
 ```
 
 Be sure to create a `.env` file in the root directory and add your LLM API keys (OpenAI and/or Anthropic) as well as your W&B API key.
@@ -22,6 +20,10 @@ Be sure to create a `.env` file in the root directory and add your LLM API keys 
 ### Usage
 
 ```bash
+# activate the virtual environment first
+source .venv/bin/activate
+
+# run evaluation
 python -m src.evaluation.evaluate --dataset train.json --model gpt-4o --max-examples 10
 ```
 
