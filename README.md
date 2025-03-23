@@ -1,6 +1,8 @@
 # Tomoro: ConvFinQA Evaluation
 
  A tool for evaluating LLMs on the `ConvFinQA` dataset - a conversational financial QA benchmark. 
+ 
+ **The report component of this project is available [here](https://ameenahmed.notion.site/Tomoro-Report-Ameen-Ahmed-1bfc1ac745a480d99df2df5b1b148686).**
 
  ## Setup
 ### Prerequisites
